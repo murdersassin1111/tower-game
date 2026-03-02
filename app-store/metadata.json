@@ -1,0 +1,28 @@
+{
+  "ios": {
+    "name": "TOWER: Isometric Defense",
+    "subtitle": "PvE Tower Defense Idle Game",
+    "description": "TOWER is an always-active isometric tower defense game. Your tower is under constant siege — defend it with lasers, mortars, tesla coils, freeze rays, and nukes. Upgrade, survive, and push your wave record.\n\nFeatures:\n• 6 unique enemy types including bosses\n• 5 devastasting turret types\n• Beautiful retro-tech isometric visuals\n• Always active — your defenses run while you're away\n• Deep upgrade system: turrets, shield, economy\n• Infinite waves with scaling difficulty\n• Boss waves every 10 levels\n• Procedural audio — no music files needed\n• Built for iOS and Android",
+    "keywords": ["tower defense", "idle game", "strategy", "isometric", "PvE", "defense", "upgrade", "sci-fi"],
+    "supportUrl": "https://mesquitemanufacturing.com",
+    "marketingUrl": "https://murdersassin1111.github.io/tower-game/",
+    "privacyPolicyUrl": "https://mesquitemanufacturing.com",
+    "primaryCategory": "GAMES_STRATEGY",
+    "secondaryCategory": "GAMES_SIMULATION",
+    "contentRating": "4+",
+    "price": "FREE"
+  },
+  "android": {
+    "packageName": "com.tower.defense.game",
+    "category": "GAME_STRATEGY",
+    "contentRating": "Everyone"
+  },
+  "screenshots": {
+    "required_sizes": ["6.7in (1290x2796)", "6.5in (1242x2688)", "5.5in (1242x2208)"],
+    "note": "Generate from browser: open game at 390x844, screenshot, scale to required sizes"
+  },
+  "icon": {
+    "size": "1024x1024",
+    "description": "Dark background (#0a0f0d), centered isometric cube tower stack in green (#22c55e), subtle green grid overlay, 'TOWER' text at bottom in monospace"
+  }
+}
