@@ -134,7 +134,16 @@ export class WaveManager extends Phaser.Events.EventEmitter {
 
     if (this.isResting) {
       this.restTimer -= delta;
-      if (this.restTimer <= 0) this.startNextWave();
+      // Show countdown
+      const secs = Math.ceil(this.restTimer / 1000);
+      if (secs > 0) {
+        this.waveText.setText(`Next wave in ${secs}...`)
+          .setColor('#86efac').setFontSize('18px').setAlpha(0.85);
+      }
+      if (this.restTimer <= 0) {
+        this.waveText.setAlpha(0);
+        this.startNextWave();
+      }
       return;
     }
 

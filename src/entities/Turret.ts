@@ -2,12 +2,13 @@ import Phaser from 'phaser';
 import { COLORS, TURRETS } from '../config';
 import type { TurretType } from '../types';
 import { Enemy } from './Enemy';
+import type { EconomyManager } from '../systems/EconomyManager';
 
 export class Turret {
   scene: Phaser.Scene;
   type: TurretType;
   x: number; y: number;
-  damage: number; range: number; fireRate: number;
+  baseDamage: number; baseRange: number; baseFireRate: number;
   lastFired: number = 0;
   disabled: boolean = false;
   disableTimer: number = 0;
@@ -17,25 +18,28 @@ export class Turret {
   baseSprite!: Phaser.GameObjects.Image;
   rangeCircle!: Phaser.GameObjects.Graphics;
   private pulse: number = 0;
+  private economy?: EconomyManager;
 
-  constructor(scene: Phaser.Scene, type: TurretType, x: number, y: number) {
+  constructor(scene: Phaser.Scene, type: TurretType, x: number, y: number, economy?: EconomyManager) {
     this.scene = scene;
     this.type = type;
     this.x = x; this.y = y;
+    this.economy = economy;
     const cfg = TURRETS[type];
-    this.damage = cfg.damage;
-    this.range = cfg.range;
-    this.fireRate = cfg.fireRate;
+    this.baseDamage = cfg.damage;
+    this.baseRange = cfg.range;
+    this.baseFireRate = cfg.fireRate;
 
-    // Small circular base plate
     this.baseSprite = scene.add.image(x, y + 6, 'tower-base')
       .setDepth(295).setScale(0.28).setTint(0x1a3a2a).setAlpha(0.8);
-
     this.sprite = scene.add.image(x, y, `turret-${type}`)
       .setDepth(300).setScale(0.55);
-
     this.rangeCircle = scene.add.graphics().setDepth(50).setVisible(false);
   }
+
+  get damage()   { return this.baseDamage   * (this.economy?.getDamageMult()   ?? 1); }
+  get range()    { return this.baseRange    + (this.economy?.getRangeBonus()   ?? 0); }
+  get fireRate() { return this.baseFireRate * (this.economy?.getFireRateMult() ?? 1); }
 
   findTarget(enemies: Enemy[]): Enemy | null {
     let best: Enemy | null = null; let bestDist = Infinity;
@@ -53,55 +57,38 @@ export class Turret {
     return (now - this.lastFired) >= (1000 / this.fireRate);
   }
 
-  fire(target: Enemy, now: number, enemies: Enemy[]) {
+  fire(target: Enemy, now: number, enemies: Enemy[], gameSpeed: number = 1) {
     this.lastFired = now;
-    const cfg = TURRETS[this.type];
 
-    // Rotate turret gun toward target
+    // Rotate gun toward target
     const dx = target.x - this.x, dy = target.y - this.y;
     this.sprite.setRotation(Math.atan2(dy, dx) + Math.PI / 2);
 
     switch (this.type) {
       case 'laser': {
         target.takeDamage(this.damage);
-        try { this.scene.sound.play('laser', { volume: 0.3, detune: (Math.random() - 0.5) * 200 }); } catch(_) {}
-        const laserG = this.scene.add.graphics().setDepth(250);
-        laserG.lineStyle(3, COLORS.GREEN, 1);
-        laserG.lineBetween(this.x, this.y, target.x, target.y);
-        laserG.lineStyle(1, 0xaaffaa, 0.7);
-        laserG.lineBetween(this.x, this.y, target.x, target.y);
-        this.scene.tweens.add({ targets: laserG, alpha: 0, duration: 100, onComplete: () => laserG.destroy() });
+        try { this.scene.sound.play('laser', { volume: 0.28, detune: (Math.random()-0.5)*200 }); } catch(_) {}
+        const beam = this.scene.add.graphics().setDepth(250);
+        beam.lineStyle(3, COLORS.GREEN, 1);
+        beam.lineBetween(this.x, this.y, target.x, target.y);
+        beam.lineStyle(1, 0xaaffaa, 0.6);
+        beam.lineBetween(this.x, this.y, target.x, target.y);
+        this.scene.tweens.add({ targets: beam, alpha: 0, duration: 90, onComplete: () => beam.destroy() });
         break;
       }
 
       case 'mortar': {
-        const aoe = (cfg as { aoeRadius: number }).aoeRadius ?? 65;
-        try { this.scene.sound.play('mortar', { volume: 0.4 }); } catch(_) {}
-        const sx = this.x, sy = this.y, ex = target.x, ey = target.y;
-        const shell = this.scene.add.graphics().setDepth(260);
-        let t = 0;
-        const iv = this.scene.time.addEvent({ delay: 16, loop: true, callback: () => {
-          t += 0.04;
-          shell.clear();
-          const px = Phaser.Math.Linear(sx, ex, t);
-          const py = Phaser.Math.Linear(sy, ey, t) - Math.sin(t * Math.PI) * 80;
-          shell.fillStyle(0xff8800, 1); shell.fillCircle(px, py, 6);
-          if (t >= 1) {
-            iv.destroy(); shell.destroy();
-            for (const e of enemies) {
-              if (e.dead) continue;
-              const ddx = e.x - ex, ddy = e.y - ey;
-              if (Math.sqrt(ddx*ddx+ddy*ddy) <= aoe) e.takeDamage(this.damage);
-            }
-            try { this.scene.sound.play('explosion', { volume: 0.5 }); } catch(_) {}
-            this.scene.add.particles(ex, ey, 'particle-orange', {
-              speed:{min:60,max:200}, scale:{start:1,end:0}, lifespan:500, quantity:15, emitting:false,
-            }).explode(15, ex, ey);
-            const ring = this.scene.add.graphics().setDepth(255);
-            ring.lineStyle(3, 0xff6600, 1); ring.strokeCircle(ex, ey, 10);
-            this.scene.tweens.add({ targets: ring, scaleX: aoe/10, scaleY: aoe/10, alpha: 0, duration: 300, onComplete: () => ring.destroy() });
+        const aoe = (TURRETS.mortar as { aoeRadius: number }).aoeRadius;
+        try { this.scene.sound.play('mortar', { volume: 0.38 }); } catch(_) {}
+        this.fireProjectile(this.x, this.y, target.x, target.y, 0xff8800, 6, 80, gameSpeed, (ex, ey) => {
+          for (const e of enemies) {
+            if (e.dead) continue;
+            const ddx = e.x - ex, ddy = e.y - ey;
+            if (Math.sqrt(ddx*ddx+ddy*ddy) <= aoe) e.takeDamage(this.damage);
           }
-        }});
+          this.explode(ex, ey, aoe, COLORS.ORANGE, 'particle-orange', 14);
+          try { this.scene.sound.play('explosion', { volume: 0.45 }); } catch(_) {}
+        });
         break;
       }
 
@@ -113,72 +100,104 @@ export class Turret {
           if (Math.sqrt(ddx*ddx+ddy*ddy) < 120) chain.push(e);
         }
         chain.forEach(t2 => t2.takeDamage(this.damage));
-        try { this.scene.sound.play('laser', { volume: 0.4, detune: -600 }); } catch(_) {}
+        try { this.scene.sound.play('laser', { volume: 0.35, detune: -700 }); } catch(_) {}
         const arc = this.scene.add.graphics().setDepth(255);
         for (let i = 0; i < chain.length; i++) {
-          const from = i === 0 ? { x: this.x, y: this.y } : chain[i-1]!;
-          arc.lineStyle(2, 0x00ffff, 1); arc.lineBetween(from.x, from.y, chain[i]!.x, chain[i]!.y);
+          const from = i === 0 ? this : chain[i-1]!;
+          arc.lineStyle(2 + Math.random(), 0x00ffff, 1);
+          // zigzag lightning
+          const tx = chain[i]!.x, ty = chain[i]!.y;
+          const pts = this.lightningPts(from.x, from.y, tx, ty, 4);
+          arc.strokePoints(pts, false);
         }
-        this.scene.tweens.add({ targets: arc, alpha: 0, duration: 150, onComplete: () => arc.destroy() });
+        this.scene.tweens.add({ targets: arc, alpha: 0, duration: 140, onComplete: () => arc.destroy() });
         break;
       }
 
       case 'freeze': {
         target.takeDamage(this.damage);
-        target.applyStatus('frozen', 2200);
-        try { this.scene.sound.play('shield', { volume: 0.3, detune: 400 }); } catch(_) {}
+        target.applyStatus('frozen', 2400);
+        try { this.scene.sound.play('shield', { volume: 0.28, detune: 500 }); } catch(_) {}
         this.scene.add.particles(target.x, target.y, 'particle-cyan', {
-          speed:{min:30,max:80}, scale:{start:0.7,end:0}, lifespan:400, quantity:6, emitting:false,
+          speed:{min:25,max:75}, scale:{start:0.7,end:0}, lifespan:400, quantity:6, emitting:false,
         }).explode(6, target.x, target.y);
         break;
       }
 
       case 'nuke': {
-        const aoeN = (cfg as { aoeRadius: number }).aoeRadius ?? 140;
+        const aoeN = (TURRETS.nuke as { aoeRadius: number }).aoeRadius;
         try { this.scene.sound.play('nuke-launch', { volume: 0.5 }); } catch(_) {}
-        const mx = target.x, my = target.y;
-        const missile = this.scene.add.graphics().setDepth(260);
-        let nt = 0;
-        const nsx = this.x, nsy = this.y;
-        const niv = this.scene.time.addEvent({ delay: 16, loop: true, callback: () => {
-          nt += 0.025;
-          missile.clear();
-          const px = Phaser.Math.Linear(nsx, mx, nt);
-          const py = Phaser.Math.Linear(nsy, my, nt) - Math.sin(nt * Math.PI) * 120;
-          missile.fillStyle(0xff3333, 1); missile.fillCircle(px, py, 9);
-          missile.fillStyle(0xff8800, 0.8); missile.fillCircle(px, py + 10, 6);
-          if (nt >= 1) {
-            niv.destroy(); missile.destroy();
-            for (const e of enemies) {
-              if (e.dead) continue;
-              const ddx = e.x - mx, ddy = e.y - my;
-              if (Math.sqrt(ddx*ddx+ddy*ddy) <= aoeN) e.takeDamage(this.damage);
-            }
-            try { this.scene.sound.play('nuke-explode', { volume: 0.7 }); } catch(_) {}
-            this.scene.cameras.main.shake(350, 0.025);
-            this.scene.add.particles(mx, my, 'particle-orange', {
-              speed:{min:100,max:350}, scale:{start:1.5,end:0}, lifespan:800, quantity:30, emitting:false,
-            }).explode(30, mx, my);
-            this.scene.add.particles(mx, my, 'particle-red', {
-              speed:{min:60,max:200}, scale:{start:1,end:0}, lifespan:600, quantity:20, emitting:false,
-            }).explode(20, mx, my);
-            const ex = this.scene.add.graphics().setDepth(255);
-            ex.lineStyle(4, 0xff3300, 1); ex.strokeCircle(mx, my, 10);
-            this.scene.tweens.add({ targets: ex, scaleX: aoeN/10, scaleY: aoeN/10, alpha: 0, duration: 500, onComplete: () => ex.destroy() });
+        this.fireProjectile(this.x, this.y, target.x, target.y, 0xff3333, 9, 120, gameSpeed, (ex, ey) => {
+          for (const e of enemies) {
+            if (e.dead) continue;
+            const ddx = e.x - ex, ddy = e.y - ey;
+            if (Math.sqrt(ddx*ddx+ddy*ddy) <= aoeN) e.takeDamage(this.damage);
           }
-        }});
+          this.scene.cameras.main.shake(380, 0.028);
+          this.explode(ex, ey, aoeN, COLORS.RED, 'particle-red', 30);
+          this.scene.add.particles(ex, ey, 'particle-orange', {
+            speed:{min:80,max:260}, scale:{start:1.4,end:0}, lifespan:700, quantity:22, emitting:false,
+          }).explode(22, ex, ey);
+          try { this.scene.sound.play('nuke-explode', { volume: 0.7 }); } catch(_) {}
+        });
         break;
       }
     }
   }
 
+  private fireProjectile(
+    sx: number, sy: number, ex: number, ey: number,
+    color: number, size: number, arc: number,
+    gameSpeed: number, onHit: (x: number, y: number) => void
+  ) {
+    const shell = this.scene.add.graphics().setDepth(260);
+    const totalMs = 500 / gameSpeed;
+    let elapsed = 0;
+    const cb = this.scene.time.addEvent({
+      delay: 16, loop: true, callback: () => {
+        elapsed += 16;
+        const t = Math.min(elapsed / totalMs, 1);
+        shell.clear();
+        const px = Phaser.Math.Linear(sx, ex, t);
+        const py = Phaser.Math.Linear(sy, ey, t) - Math.sin(t * Math.PI) * arc;
+        shell.fillStyle(color, 1); shell.fillCircle(px, py, size);
+        if (t >= 1) { cb.destroy(); shell.destroy(); onHit(ex, ey); }
+      }
+    });
+  }
+
+  private explode(cx: number, cy: number, radius: number, color: number, particle: string, qty: number) {
+    this.scene.add.particles(cx, cy, particle, {
+      speed:{min:50,max:180}, scale:{start:1.0,end:0}, lifespan:500, quantity:qty, emitting:false,
+    }).explode(qty, cx, cy);
+    const ring = this.scene.add.graphics().setDepth(255);
+    ring.lineStyle(3, color, 1); ring.strokeCircle(cx, cy, 10);
+    this.scene.tweens.add({ targets: ring, scaleX: radius/10, scaleY: radius/10, alpha: 0, duration: 350, onComplete: () => ring.destroy() });
+  }
+
+  private lightningPts(x1: number, y1: number, x2: number, y2: number, segs: number) {
+    const pts: Phaser.Types.Math.Vector2Like[] = [{ x: x1, y: y1 }];
+    for (let i = 1; i < segs; i++) {
+      const t = i / segs;
+      const mx = Phaser.Math.Linear(x1, x2, t) + (Math.random()-0.5)*18;
+      const my = Phaser.Math.Linear(y1, y2, t) + (Math.random()-0.5)*18;
+      pts.push({ x: mx, y: my });
+    }
+    pts.push({ x: x2, y: y2 });
+    return pts;
+  }
+
   disable(duration: number) {
     this.disabled = true;
     this.disableTimer = duration;
-    this.sprite.setTint(0x555555).setAlpha(0.6);
+    this.sprite.setTint(0x555555).setAlpha(0.55);
+    // Visual EMP sparks
+    this.scene.add.particles(this.x, this.y, 'particle-cyan', {
+      speed:{min:20,max:60}, scale:{start:0.5,end:0}, lifespan:300, quantity:5, emitting:false,
+    }).explode(5, this.x, this.y);
   }
 
-  update(now: number, delta: number, enemies: Enemy[]) {
+  update(now: number, delta: number, enemies: Enemy[], gameSpeed: number = 1) {
     this.pulse += delta * 0.003;
 
     if (this.disabled) {
@@ -194,7 +213,7 @@ export class Turret {
 
     if (this.canFire(now)) {
       const target = this.findTarget(enemies);
-      if (target) this.fire(target, now, enemies);
+      if (target) this.fire(target, now, enemies, gameSpeed);
     }
   }
 }

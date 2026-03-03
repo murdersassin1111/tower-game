@@ -123,6 +123,22 @@ export class EconomyManager extends Phaser.Events.EventEmitter {
     return bonus;
   }
 
+  getHpBonus(): number {
+    const level = this.getUpgradeLevel('tower_hp');
+    const cfg = UPGRADES['tower_hp'];
+    let bonus = 0;
+    for (let i = 0; i < level; i++) bonus += cfg.add![i]!;
+    return bonus;
+  }
+
+  getFireRateMult(): number {
+    const level = this.getUpgradeLevel('turret_firerate');
+    const cfg = UPGRADES['turret_firerate'];
+    let mult = 1;
+    for (let i = 0; i < level; i++) mult *= cfg.mult![i]!;
+    return mult;
+  }
+
   getState(): { cores: number; shards: number; upgrades: UpgradeState } {
     return { cores: this.cores, shards: this.shards, upgrades: { ...this.upgrades } };
   }

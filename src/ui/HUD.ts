@@ -100,7 +100,7 @@ export class HUD {
     }).setOrigin(0.5, 1).setDepth(depth + 2).setInteractive({ useHandCursor: true });
     this.muteBtn.on('pointerdown', () => {
       const muted = this.audio?.toggleMute();
-      this.muteBtn.setText(muted ? '🔇' : '🔊');
+      this.updateMuteIcon(!!muted);
     });
   }
 
@@ -140,6 +140,10 @@ export class HUD {
       targets: t, y: y - 55, alpha: 0, duration: 950, ease: 'Power1',
       onComplete: () => t.destroy(),
     });
+  }
+
+  updateMuteIcon(muted: boolean) {
+    this.muteBtn.setText(muted ? '🔇' : '🔊');
   }
 
   showIdleSummary(cores: number, waves: number) {
