@@ -5,15 +5,13 @@ export class BootScene extends Phaser.Scene {
   constructor() { super('BootScene'); }
 
   preload() {
-    // Loading bar
     const W = GAME_WIDTH, H = GAME_HEIGHT;
     const barW = 260, barH = 6;
-    const barX = (W - barW) / 2, barY = H / 2 + 40;
+    const barX = (W - barW) / 2, barY = H / 2 + 60;
 
     const bg = this.add.graphics();
     bg.fillStyle(0x1a2e1f, 1);
     bg.fillRect(barX, barY, barW, barH);
-
     const fill = this.add.graphics();
     this.load.on('progress', (v: number) => {
       fill.clear(); fill.fillStyle(COLORS.GREEN, 1);
@@ -24,42 +22,54 @@ export class BootScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '48px', color: CSS_COLORS.GREEN,
       shadow: { color: CSS_COLORS.GREEN, blur: 30, fill: true },
     }).setOrigin(0.5);
-
-    this.add.text(W / 2, H / 2 + 28, 'LOADING...', {
+    this.add.text(W / 2, H / 2 + 34, 'LOADING...', {
       fontFamily: 'monospace', fontSize: '11px', color: CSS_COLORS.MUTED,
     }).setOrigin(0.5);
+
+    // Enemy sprites
+    const enemies = ['drone','crawler','hacker','juggernaut','emp','swarmqueen'];
+    enemies.forEach(e => this.load.image(`enemy-${e}`, `assets/images/enemy-${e}.png`));
+
+    // Turret sprites
+    const turrets = ['laser','mortar','tesla','freeze','nuke'];
+    turrets.forEach(t => this.load.image(`turret-${t}`, `assets/images/turret-${t}.png`));
+
+    // Tower sprites
+    ['tower-base','tower-mid','tower-top','tower-cannon'].forEach(k =>
+      this.load.image(k, `assets/images/${k}.png`));
+
+    // Audio
+    const sounds: Record<string, string> = {
+      laser: 'assets/audio/laser.ogg',
+      mortar: 'assets/audio/mortar.ogg',
+      'nuke-launch': 'assets/audio/nuke-launch.ogg',
+      'nuke-explode': 'assets/audio/nuke-explode.ogg',
+      explosion: 'assets/audio/explosion.ogg',
+      hit: 'assets/audio/hit.ogg',
+      shield: 'assets/audio/shield.ogg',
+      'enemy-die': 'assets/audio/enemy-die.ogg',
+      click: 'assets/audio/click.ogg',
+      buy: 'assets/audio/buy.ogg',
+      'wave-start': 'assets/audio/wave-start.ogg',
+    };
+    Object.entries(sounds).forEach(([k, v]) => this.load.audio(k, v));
   }
 
   create() {
-    // Generate all textures procedurally
-    this.generateTextures();
+    this.generateParticleTextures();
     this.scene.start('MenuScene');
   }
 
-  generateTextures() {
-    // Green particle
-    const pg = this.add.graphics({ x: 0, y: 0 });
-    pg.fillStyle(COLORS.GREEN, 1); pg.fillCircle(4, 4, 4);
-    pg.generateTexture('particle-green', 8, 8); pg.setVisible(false);
-
-    // Orange particle
-    const po = this.add.graphics({ x: 0, y: 0 });
-    po.fillStyle(0xff6600, 1); po.fillCircle(4, 4, 4);
-    po.generateTexture('particle-orange', 8, 8); po.setVisible(false);
-
-    // White particle
-    const pw = this.add.graphics({ x: 0, y: 0 });
-    pw.fillStyle(0xffffff, 1); pw.fillCircle(3, 3, 3);
-    pw.generateTexture('particle-white', 6, 6); pw.setVisible(false);
-
-    // Cyan particle
-    const pc = this.add.graphics({ x: 0, y: 0 });
-    pc.fillStyle(0x00ffff, 1); pc.fillCircle(3, 3, 3);
-    pc.generateTexture('particle-cyan', 6, 6); pc.setVisible(false);
-
-    // Red particle
-    const pr = this.add.graphics({ x: 0, y: 0 });
-    pr.fillStyle(0xff3333, 1); pr.fillCircle(4, 4, 4);
-    pr.generateTexture('particle-red', 8, 8); pr.setVisible(false);
+  generateParticleTextures() {
+    const make = (name: string, color: number, size: number) => {
+      const g = this.add.graphics({ x: 0, y: 0 });
+      g.fillStyle(color, 1); g.fillCircle(size, size, size);
+      g.generateTexture(name, size * 2, size * 2); g.setVisible(false);
+    };
+    make('particle-green', 0x22c55e, 4);
+    make('particle-orange', 0xff6600, 4);
+    make('particle-white', 0xffffff, 3);
+    make('particle-cyan', 0x00ffff, 3);
+    make('particle-red', 0xff3333, 4);
   }
 }
