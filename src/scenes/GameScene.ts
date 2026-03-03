@@ -188,7 +188,7 @@ export class GameScene extends Phaser.Scene {
     // Replace oldest non-nuke
     const oldest = this.turrets.find(t => t.type !== 'nuke');
     if (oldest) {
-      oldest.sprite.destroy(); oldest.baseSprite.destroy(); oldest.rangeCircle.destroy();
+      oldest.rangeCircle.destroy();
       this.turrets = this.turrets.filter(t => t !== oldest);
       this.placeTurretAt(type, oldest.x, oldest.y);
     }

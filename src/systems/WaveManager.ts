@@ -129,7 +129,12 @@ export class WaveManager extends Phaser.Events.EventEmitter {
   }
 
   update(delta: number) {
-    // Clean dead/reached enemies
+    // Cleanup visuals for enemies that finished (reached or dead)
+    for (const e of this.activeEnemies) {
+      if ((e.dead || e.reached) && !e.cleanedUp) {
+        e.cleanupVisuals();
+      }
+    }
     this.activeEnemies = this.activeEnemies.filter(e => !e.dead && !e.reached);
 
     if (this.isResting) {
