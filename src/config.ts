@@ -57,11 +57,11 @@ export const TOWER = {
 // Enemy base configs (multiplied by wave scaling)
 export const ENEMIES = {
   drone: {
-    hp: 80, speed: 130, damage: 8, reward: 3,
+    hp: 50, speed: 130, damage: 8, reward: 3,
     size: 14, color: COLORS.GREEN_LIGHT, spawnCount: 3,
   },
   crawler: {
-    hp: 500, speed: 40, damage: 30, reward: 15,
+    hp: 280, speed: 40, damage: 30, reward: 15,
     size: 22, color: COLORS.SILVER, spawnCount: 1,
   },
   hacker: {
@@ -85,7 +85,7 @@ export const ENEMIES = {
 // Turret base configs
 export const TURRETS = {
   laser: {
-    damage: 45, range: 220, fireRate: 0.85,
+    damage: 60, range: 220, fireRate: 0.85,
     cost: 150, color: COLORS.GREEN, label: 'LASER',
     description: 'Fast single-target. Bread and butter.',
   },
@@ -127,7 +127,7 @@ export const UPGRADES = {
 // Wave scaling
 export const WAVE = {
   BOSS_EVERY: 10,
-  HP_SCALE:   0.18,   // enemy HP += base * wave * scale
+  HP_SCALE:   0.12,   // enemy HP += base * wave * scale
   COUNT_SCALE: 0.4,   // extra enemies per wave
   SPAWN_DELAY: 800,   // ms between enemies in wave
   REST_TIME:   3000,  // ms between waves
